@@ -49,7 +49,16 @@ A question that is not in the notes, such as "What is the CEO's salary?", should
 
 ## Optional model
 
-Retrieval already works with no key. To let a model write the final sentence, put one of these in `server/.env` and restart:
+Retrieval already works with no key. To let Gemini write a direct answer using the retrieved passages, add your Gemini API key to `server/.env` and restart the API:
+
+```
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_MODEL=gemini-2.5-flash
+```
+
+Get an API key from Google AI Studio. The key stays on the server; do not put it in the client code.
+
+OpenAI and Groq are also supported as alternatives:
 
 ```
 OPENAI_API_KEY=sk-...
@@ -63,7 +72,7 @@ GROQ_API_KEY=gsk_...
 GROQ_MODEL=openai/gpt-oss-20b
 ```
 
-The header changes from "Answering from notes" to "Model writer on". The passages are still retrieved first. The model only receives those passages.
+The header changes from "Answering from notes" to "Model writer on". The passages are still retrieved first. The model only receives those passages. Gemini is used first when its key is configured; otherwise the app checks OpenAI, then Groq.
 
 ## Files
 
@@ -74,7 +83,7 @@ The header changes from "Answering from notes" to "Model writer on". The passage
 | `server/src/chunk.js` | Split text. |
 | `server/src/embed.js` | Text to vector, and cosine similarity. |
 | `server/src/retrieve.js` | Rank passages. |
-| `server/src/answer.js` | Quote sentences, or call OpenAI / Groq. |
+| `server/src/answer.js` | Generate an answer with Gemini, OpenAI, or Groq; quote sentences without a key. |
 | `client/src/App.jsx` | React screen. |
 
 The vectors are feature hashes (words and word-pairs scattered into a fixed list of numbers). That is a real retrieval method, and it runs offline. `embed()` is the only function you would replace with a hosted embedding model later. If you change it, delete the old notes so every vector stays the same length.

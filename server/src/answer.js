@@ -32,8 +32,16 @@ export function extractAnswer(question, sources) {
 }
 
 function provider() {
+  if (process.env.GEMINI_API_KEY) {
+    return {
+      type: 'gemini',
+      key: process.env.GEMINI_API_KEY,
+      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+    }
+  }
   if (process.env.OPENAI_API_KEY) {
     return {
+      type: 'openai-compatible',
       url: 'https://api.openai.com/v1/chat/completions',
       key: process.env.OPENAI_API_KEY,
       model: process.env.OPENAI_MODEL || 'gpt-4o-mini'
@@ -41,6 +49,7 @@ function provider() {
   }
   if (process.env.GROQ_API_KEY) {
     return {
+      type: 'openai-compatible',
       url: 'https://api.groq.com/openai/v1/chat/completions',
       key: process.env.GROQ_API_KEY,
       model: process.env.GROQ_MODEL || 'openai/gpt-oss-20b'
@@ -62,28 +71,41 @@ export async function answerWithModel(question, sources) {
     .map((source, index) => `[${index + 1}] ${source.title}\n${source.text}`)
     .join('\n\n')
 
-  const response = await fetch(selected.url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${selected.key}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: selected.model,
-      temperature: 0.2,
-      max_tokens: 220,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You answer questions about a company handbook. Use only the passages in the user message. If they do not contain the answer, say you could not find it in the notes. Write one to three plain sentences.'
-        },
-        {
-          role: 'user',
-          content: `Passages:\n${passages}\n\nQuestion: ${question}`
+  const systemPrompt =
+    'You answer questions about a company handbook. Use only the passages provided. If they do not contain the answer, say you could not find it in the notes. Write one to three plain sentences.'
+  const userPrompt = `Passages:\n${passages}\n\nQuestion: ${question}`
+
+  const request = selected.type === 'gemini'
+    ? {
+        url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selected.model)}:generateContent?key=${encodeURIComponent(selected.key)}`,
+        headers: { 'Content-Type': 'application/json' },
+        body: {
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 220 }
         }
-      ]
-    })
+      }
+    : {
+        url: selected.url,
+        headers: {
+          Authorization: `Bearer ${selected.key}`,
+          'Content-Type': 'application/json'
+        },
+        body: {
+          model: selected.model,
+          temperature: 0.2,
+          max_tokens: 220,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ]
+        }
+      }
+
+  const response = await fetch(request.url, {
+    method: 'POST',
+    headers: request.headers,
+    body: JSON.stringify(request.body)
   })
 
   if (!response.ok) {
@@ -92,7 +114,9 @@ export async function answerWithModel(question, sources) {
   }
 
   const data = await response.json()
-  const text = data.choices?.[0]?.message?.content?.trim()
+  const text = selected.type === 'gemini'
+    ? data.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('').trim()
+    : data.choices?.[0]?.message?.content?.trim()
   if (!text) throw new Error('The model returned an empty answer')
   return { text, model: selected.model }
 }
