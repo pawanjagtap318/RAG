@@ -78,3 +78,6 @@ The header changes from "Answering from notes" to "Model writer on". The passage
 | `client/src/App.jsx` | React screen. |
 
 The vectors are feature hashes (words and word-pairs scattered into a fixed list of numbers). That is a real retrieval method, and it runs offline. `embed()` is the only function you would replace with a hosted embedding model later. If you change it, delete the old notes so every vector stays the same length.
+
+# RAG
+>>>>>>> a990a1c770a15f2c4ced80b051fcff0d6457db47
