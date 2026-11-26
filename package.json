@@ -1,0 +1,12 @@
+{
+  "name": "askbase",
+  "private": true,
+  "scripts": {
+    "setup": "npm install && npm install --prefix server && npm install --prefix client",
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "check": "node server/src/selfcheck.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
